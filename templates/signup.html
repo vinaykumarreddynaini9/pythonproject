@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg p-4 rounded-4">
+                <h3 class="text-center mb-4 text-primary">Signup</h3>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                {% if not otp_sent %}
+                <!-- Normal signup form -->
+                <form method="POST" action="{{ url_for('signup') }}" novalidate>
+                    
+                    <!-- Username -->
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <input type="text" class="form-control rounded-end" id="username" name="username" required>
+                        </div>
+                        <div class="invalid-feedback">Please enter a username.</div>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input type="email" class="form-control rounded-end" id="email" name="email" required>
+                        </div>
+                        <div class="invalid-feedback">Please enter a valid email.</div>
+                    </div>
+
+                    <!-- Phone -->
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                            <input type="text" class="form-control rounded-end" id="phone" name="phone" pattern="[0-9]{10}" required>
+                        </div>
+                        <div class="invalid-feedback">Enter a valid 10-digit phone number.</div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <input type="password" class="form-control" id="password" name="password" minlength="6" required>
+                            <span class="input-group-text" onclick="togglePassword()" style="cursor:pointer;">
+                                <i class="bi bi-eye" id="toggleIcon"></i>
+                            </span>
+                        </div>
+                        <div class="invalid-feedback">Password must be at least 6 characters.</div>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="btn btn-gradient w-100 py-2">Signup</button>
+                </form>
+
+                {% else %}
+                <!-- OTP verification form -->
+                <form method="POST" action="{{ url_for('verify_signup_otp') }}">
+                    <div class="mb-3">
+                        <label for="otp" class="form-label">Enter OTP (sent to {{ email }})</label>
+                        <input type="text" class="form-control" id="otp" name="otp" required>
+                        <div class="invalid-feedback">Please enter the OTP.</div>
+                    </div>
+                    <button type="submit" class="btn btn-gradient w-100 py-2">Verify OTP</button>
+                </form>
+                {% endif %}
+
+                <p class="text-center mt-3">Already have an account? 
+                    <a href="{{ url_for('login') }}">Login here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.btn-gradient {
+    background: linear-gradient(45deg, #4a90e2, #9013fe);
+    color: white;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+.btn-gradient:hover {
+    background: linear-gradient(45deg, #9013fe, #4a90e2);
+    transform: translateY(-2px);
+}
+</style>
+
+<script>
+// Bootstrap validation
+(() => {
+    'use strict'
+    const forms = document.querySelectorAll('form')
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+
+// Password toggle
+function togglePassword() {
+    const pwd = document.getElementById("password");
+    const icon = document.getElementById("toggleIcon");
+    if (pwd.type === "password") {
+        pwd.type = "text";
+        icon.classList.replace("bi-eye", "bi-eye-slash");
+    } else {
+        pwd.type = "password";
+        icon.classList.replace("bi-eye-slash", "bi-eye");
+    }
+}
+</script>
+{% endblock %}

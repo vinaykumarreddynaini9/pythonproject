@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg p-4 rounded-4">
+                <h3 class="text-center mb-4 text-primary">Login</h3>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('login') }}" novalidate>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input type="email" class="form-control rounded-end" id="email" name="email" required>
+                        </div>
+                        <div class="invalid-feedback">Please enter a valid email.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                            <span class="input-group-text" onclick="togglePassword()" style="cursor:pointer;">
+                                <i class="bi bi-eye" id="toggleIcon"></i>
+                            </span>
+                        </div>
+                        <div class="invalid-feedback">Please enter your password.</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-gradient w-100 py-2">Login</button>
+                </form>
+
+                <p class="text-center mt-3">Don't have an account? 
+                    <a href="{{ url_for('signup') }}">Signup here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gradient Button Styling -->
+<style>
+.btn-gradient {
+    background: linear-gradient(45deg, #4a90e2, #9013fe);
+    color: white;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+.btn-gradient:hover {
+    background: linear-gradient(45deg, #9013fe, #4a90e2);
+    transform: translateY(-2px);
+}
+</style>
+
+<!-- Bootstrap validation & password toggle -->
+<script>
+(() => {
+    'use strict'
+    const forms = document.querySelectorAll('form')
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+
+function togglePassword() {
+    const pwd = document.getElementById("password");
+    const icon = document.getElementById("toggleIcon");
+    if (pwd.type === "password") {
+        pwd.type = "text";
+        icon.classList.replace("bi-eye", "bi-eye-slash");
+    } else {
+        pwd.type = "password";
+        icon.classList.replace("bi-eye-slash", "bi-eye");
+    }
+}
+</script>
+{% endblock %}

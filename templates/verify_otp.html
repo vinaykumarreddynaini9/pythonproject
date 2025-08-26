@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg p-4 rounded-4">
+                <h3 class="text-center mb-4 text-primary">OTP Verification</h3>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                <p class="text-center text-muted mb-3">
+                    Please enter the OTP sent to your email.
+                </p>
+
+                <form method="POST" action="">
+                    <div class="mb-3">
+                        <label for="otp" class="form-label">Enter OTP</label>
+                        <input type="text" class="form-control rounded-3" id="otp" name="otp" pattern="[0-9]{6}" required>
+                        <div class="form-text">OTP is 6 digits long.</div>
+                    </div>
+                    <button type="submit" class="btn btn-gradient w-100 py-2">Verify OTP</button>
+                </form>
+
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('login') }}" class="btn btn-link">← Back to Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.btn-gradient {
+    background: linear-gradient(45deg, #4a90e2, #9013fe);
+    color: white;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+.btn-gradient:hover {
+    background: linear-gradient(45deg, #9013fe, #4a90e2);
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

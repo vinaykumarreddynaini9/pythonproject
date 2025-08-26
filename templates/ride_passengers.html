@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center mb-4 text-primary">Passengers for Ride</h2>
+
+    <!-- Ride Info -->
+    <div class="card shadow-sm border-0 mb-4 rounded-4">
+        <div class="card-body">
+            <h5 class="card-title">
+                <i class="bi bi-geo-alt-fill text-danger"></i> {{ ride.from_city }}
+                <span class="mx-2">→</span>
+                <i class="bi bi-geo-fill text-success"></i> {{ ride.to_city }}
+            </h5>
+            <p class="card-text mb-1">
+                <i class="bi bi-calendar-date"></i> <strong>Date:</strong> {{ ride.date }} |
+                <i class="bi bi-clock"></i> <strong>Time:</strong> {{ ride.time }}
+            </p>
+            <p class="card-text">
+                <i class="bi bi-currency-rupee"></i> <strong>Fare per seat:</strong> ₹{{ ride.fare_per_seat }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Passenger List -->
+    {% if bookings %}
+        <div class="list-group">
+            {% for booking in bookings %}
+            <div class="list-group-item d-flex justify-content-between align-items-center rounded-3 shadow-sm mb-2">
+                <div>
+                    <h6 class="mb-1">
+                        <i class="bi bi-person-fill text-primary"></i> {{ booking.user.username }}
+                    </h6>
+                    <small class="text-muted">
+                        <i class="bi bi-people-fill"></i> Seats Booked: {{ booking.seats_booked }}
+                    </small>
+                </div>
+                <div class="d-flex gap-2">
+                    <form action="{{ url_for('cancel_booking_driver', booking_id=booking.id) }}" method="POST" 
+                          onsubmit="return confirm('Are you sure you want to remove this passenger?');">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-person-x-fill"></i> Remove
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center rounded-3 shadow-sm">
+            <i class="bi bi-info-circle-fill"></i> No passengers have booked this ride yet.
+        </div>
+    {% endif %}
+
+    <!-- Back Button -->
+    <div class="mt-4 text-center">
+        <a href="{{ url_for('my_rides') }}" class="btn btn-gradient px-4">
+            <i class="bi bi-arrow-left"></i> Back to My Rides
+        </a>
+    </div>
+</div>
+
+<style>
+.btn-gradient {
+    background: linear-gradient(45deg, #4a90e2, #9013fe);
+    color: white;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+.btn-gradient:hover {
+    background: linear-gradient(45deg, #9013fe, #4a90e2);
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

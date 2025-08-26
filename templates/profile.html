@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - CO-RIDER FOR TELANGANA (CGT){% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+            <div class="card shadow-lg p-4 rounded-4">
+                
+                <!-- Profile Header -->
+                <div class="text-center mb-4">
+                    <img src="https://via.placeholder.com/120" alt="Profile Picture" class="rounded-circle shadow-sm mb-3" width="120" height="120">
+                    <h3 class="fw-bold text-primary">{{ user.username }}</h3>
+                    <p class="text-muted mb-0">Manage your account details</p>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                {% if not otp_required %}
+                <!-- Profile Update Form -->
+                <form method="POST" action="{{ url_for('profile') }}">
+                    <div class="mb-3">
+                        <label for="username" class="form-label fw-semibold">Username</label>
+                        <input type="text" class="form-control rounded-3" id="username" name="username" value="{{ user.username }}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label fw-semibold">Email</label>
+                        <input type="email" class="form-control rounded-3" id="email" name="email" value="{{ user.email }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label fw-semibold">Phone Number</label>
+                        <input type="text" class="form-control rounded-3" id="phone" name="phone" value="{{ user.phone }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label fw-semibold">Password</label>
+                        <input type="password" class="form-control rounded-3" id="password" name="password" placeholder="Enter new password if you want to change">
+                    </div>
+                    <button type="submit" class="btn btn-gradient w-100 py-2">Update Profile</button>
+                </form>
+                {% else %}
+                <!-- OTP Verification Form -->
+                <form method="POST" action="{{ url_for('verify_profile_otp') }}">
+                    <div class="mb-3">
+                        <label for="otp" class="form-label fw-semibold">Enter OTP (sent to {{ otp_channel }})</label>
+                        <input type="text" class="form-control rounded-3" id="otp" name="otp" required>
+                    </div>
+                    <button type="submit" class="btn btn-gradient w-100 py-2">Verify OTP & Update</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Gradient Button -->
+<style>
+.btn-gradient {
+    background: linear-gradient(45deg, #4a90e2, #9013fe);
+    color: white;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+.btn-gradient:hover {
+    background: linear-gradient(45deg, #9013fe, #4a90e2);
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

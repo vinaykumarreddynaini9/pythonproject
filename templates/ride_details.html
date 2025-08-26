@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Ride Details - CO-RIDER FOR TELANGANA (CGT){% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="fw-bold mb-4 text-center text-primary">
+    <i class="bi bi-car-front"></i> Ride Details
+  </h2>
+
+  <!-- Ride Card -->
+  <div class="card shadow-lg rounded-4 border-0">
+    <div class="card-body">
+      <h4 class="card-title text-gradient fw-bold mb-3">
+        {{ ride.from_city }} <i class="bi bi-arrow-right"></i> {{ ride.to_city }}
+      </h4>
+      <p class="card-text">
+        <i class="bi bi-person-circle text-primary"></i> <strong>Driver:</strong> {{ ride.driver_username }} <br>
+        <i class="bi bi-calendar-event text-success"></i> <strong>Date:</strong> {{ ride.date }} <br>
+        <i class="bi bi-clock text-warning"></i> <strong>Time:</strong> {{ ride.time }} <br>
+        <i class="bi bi-people text-info"></i> <strong>Seats Available:</strong> {{ ride.seats_available }}
+      </p>
+
+      <!-- Booking Section -->
+      {% if can_book %}
+        <form method="POST" action="{{ url_for('book_ride', ride_id=ride.id) }}" class="mt-3">
+          <label class="form-label fw-semibold">Select Seats</label>
+          <input type="number" name="seats" min="1" max="{{ ride.seats_available }}" value="1"
+                 class="form-control rounded-3 mb-3" style="max-width:150px;">
+          <button type="submit" class="btn btn-gradient w-100 py-2">
+            <i class="bi bi-check-circle"></i> Book This Ride
+          </button>
+        </form>
+      {% else %}
+        <div class="alert alert-warning rounded-3 mt-3 shadow-sm">
+          <i class="bi bi-exclamation-triangle"></i> {{ reason }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Back Button -->
+  <div class="text-center mt-4">
+    <a href="{{ url_for('find_rides') }}" class="btn btn-outline-secondary rounded-3">
+      <i class="bi bi-arrow-left"></i> Back to Rides
+    </a>
+  </div>
+</div>
+
+<!-- Extra Styles -->
+<style>
+.text-gradient {
+  background: linear-gradient(45deg, #4a90e2, #9013fe);
+  -webkit-text-fill-color: transparent;
+}
+.btn-gradient {
+  background: linear-gradient(45deg, #4a90e2, #9013fe);
+  color: white;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+.btn-gradient:hover {
+  background: linear-gradient(45deg, #9013fe, #4a90e2);
+  transform: translateY(-2px);
+}
+</style>
+{% endblock %}

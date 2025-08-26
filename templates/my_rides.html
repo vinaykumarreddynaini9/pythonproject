@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center mb-4">🚗 My Posted Rides</h2>
+
+    <!-- Upcoming Rides -->
+    <h4 class="mt-4">📅 Upcoming Rides</h4>
+    {% if upcoming_rides %}
+        {% for ride in upcoming_rides %}
+        <div class="card shadow-sm mb-3 ride-card">
+            <div class="card-body">
+                <h5 class="card-title text-primary fw-bold">
+                    {{ ride.from_city }} → {{ ride.to_city }}
+                    <span class="badge bg-success ms-2">Upcoming</span>
+                </h5>
+                <p class="card-text">
+                    📅 Date: <strong>{{ ride.date }}</strong> | ⏰ Time: <strong>{{ ride.time }}</strong> <br>
+                    💺 Seats Available: {{ ride.seats_available }} <br>
+                    💰 Fare per Seat: ₹{{ ride.fare_per_seat }} <br>
+                    📞 Contact: {{ ride.driver_phone }} <br>
+                    🚘 Car No: {{ ride.vehicle_number }} | Model: {{ ride.vehicle_model }}
+                </p>
+                <form method="POST" action="{{ url_for('cancel_ride', ride_id=ride.id) }}" 
+                      onsubmit="return confirm('Are you sure you want to cancel this ride?');" class="d-inline">
+                    <button type="submit" class="btn btn-danger btn-sm">❌ Cancel Ride</button>
+                </form>
+                <a href="{{ url_for('ride_passengers', ride_id=ride.id) }}" class="btn btn-info btn-sm ms-2">👥 View Passengers</a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="text-muted">You have no upcoming rides.</p>
+    {% endif %}
+
+    <!-- Past Rides -->
+    <h4 class="mt-5">🕓 Past Rides</h4>
+    {% if past_rides %}
+        {% for ride in past_rides %}
+        <div class="card shadow-sm mb-3 ride-card">
+            <div class="card-body">
+                <h5 class="card-title text-secondary fw-bold">
+                    {{ ride.from_city }} → {{ ride.to_city }}
+                    <span class="badge bg-secondary ms-2">Completed</span>
+                </h5>
+                <p class="card-text">
+                    📅 Date: <strong>{{ ride.date }}</strong> | ⏰ Time: <strong>{{ ride.time }}</strong> <br>
+                    💺 Seats Available: {{ ride.seats_available }} <br>
+                    💰 Fare per Seat: ₹{{ ride.fare_per_seat }} <br>
+                    📞 Contact: {{ ride.driver_phone }} <br>
+                    🚘 Car No: {{ ride.vehicle_number }} | Model: {{ ride.vehicle_model }}
+                </p>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="text-muted">You have no past rides.</p>
+    {% endif %}
+</div>
+
+<style>
+.ride-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 12px;
+}
+.ride-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %}

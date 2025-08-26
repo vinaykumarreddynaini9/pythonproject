@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CO-RIDER FOR TELANGANA (CGT)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+    /* Navbar */
+    .navbar {
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+    }
+    .navbar-brand {
+        font-weight: bold;
+        font-size: 1.4rem;
+    }
+    .nav-link.active {
+        font-weight: bold;
+        border-bottom: 2px solid #fff;
+    }
+
+    /* Cards */
+    .card {
+        border-radius: 12px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+        transition: transform 0.2s ease;
+    }
+    .card:hover { transform: translateY(-5px); }
+
+    /* Buttons */
+    .btn-primary, .btn-success {
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+    }
+    .btn-primary:hover { background: linear-gradient(45deg, #6610f2, #0d6efd); }
+    .btn-success:hover { background: linear-gradient(45deg, #28a745, #218838); }
+
+    /* Alerts */
+    .alert { border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+    /* Form inputs */
+    .form-control {
+        border-radius: 8px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .form-control:focus {
+        border-color: #6610f2;
+        box-shadow: 0 0 6px rgba(102, 16, 242, 0.3);
+    }
+
+    /* Hero Banner */
+    .hero {
+        background: linear-gradient(135deg, #0d6efd, #6610f2);
+        color: white;
+        padding: 60px 20px;
+        border-radius: 12px;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    .hero h1 {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+    .hero p {
+        font-size: 1.2rem;
+        margin-top: 10px;
+    }
+
+    /* Footer */
+    footer {
+        background: #222;
+        color: #bbb;
+        padding: 15px 0;
+        margin-top: 40px;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+    footer a {
+        color: #0d6efd;
+        text-decoration: none;
+    }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('find_rides') }}">🚗 CO-RIDER</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item"><a class="nav-link {% if request.endpoint == 'find_rides' %}active{% endif %}" href="{{ url_for('find_rides') }}">Find Rides</a></li>
+        <li class="nav-item"><a class="nav-link {% if request.endpoint == 'post_ride' %}active{% endif %}" href="{{ url_for('post_ride') }}">Post Ride</a></li>
+        <li class="nav-item"><a class="nav-link {% if request.endpoint == 'my_trips' %}active{% endif %}" href="{{ url_for('my_trips') }}">My Trips</a></li>
+        <li class="nav-item"><a class="nav-link {% if request.endpoint == 'my_rides' %}active{% endif %}" href="{{ url_for('my_rides') }}">My Rides</a></li>
+      </ul>
+
+      <ul class="navbar-nav">
+        {% if current_user.is_authenticated %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('profile') }}">👤 {{ current_user.username }}</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></li>
+        {% else %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('signup') }}">Signup</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero Banner (only on homepage) -->
+{% if request.endpoint == 'find_rides' %}
+<div class="container">
+  <div class="hero">
+    <h1>Welcome to CO-RIDER 🚘</h1>
+    <p>Find or share rides across Telangana with ease & safety.</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="container mt-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    
+    {% block content %}{% endblock %}
+</div>
+
+<footer>
+  <p>© 2025 CO-RIDER Telangana. Built with ❤️ for safe & smart commuting. | <a href="#">Contact</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center mb-4 fw-bold text-primary">🚗 Available Rides</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- User's Own Posted Rides -->
+    <h4 class="mt-4 text-secondary">Your Posted Rides</h4>
+    {% if my_rides %}
+        {% for ride in my_rides %}
+            {% if ride.is_upcoming %}
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h5 class="card-title text-primary fw-bold">
+                        {{ ride.from_city }} <span class="badge bg-secondary">→</span> {{ ride.to_city }}
+                    </h5>
+                    <p class="card-text mb-1">
+                        <span class="badge bg-info text-dark">📅 {{ ride.date }}</span>
+                        <span class="badge bg-warning text-dark">⏰ {{ ride.time }}</span>
+                    </p>
+                    <p class="card-text">
+                        <span class="badge bg-success">Seats: {{ ride.seats_available }}</span>
+                        <span class="badge bg-primary">Fare: ₹{{ ride.fare_per_seat }}</span>
+                    </p>
+                    <p class="small text-muted mb-1">📞 {{ ride.driver_phone }}</p>
+                    <p class="small text-muted">🚙 {{ ride.vehicle_model }} ({{ ride.vehicle_number }})</p>
+                    <span class="badge bg-dark">This is your ride</span>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <p class="text-muted fst-italic">You haven't posted any rides yet.</p>
+    {% endif %}
+
+    <!-- Other Users' Rides -->
+    <h4 class="mt-5 text-secondary">Rides Posted by Others</h4>
+    {% if other_rides %}
+        {% for ride in other_rides %}
+            {% if ride.is_upcoming %}
+            <div class="card border-0 shadow mb-3">
+                <div class="card-body">
+                    <h5 class="card-title text-success fw-bold">
+                        {{ ride.from_city }} <span class="badge bg-secondary">→</span> {{ ride.to_city }}
+                    </h5>
+                    <p class="card-text mb-1">
+                        <span class="badge bg-info text-dark">📅 {{ ride.date }}</span>
+                        <span class="badge bg-warning text-dark">⏰ {{ ride.time }}</span>
+                    </p>
+                    <p class="card-text">
+                        <span class="badge bg-success">Seats: {{ ride.seats_available }}</span>
+                        <span class="badge bg-primary">Fare: ₹{{ ride.fare_per_seat }}</span>
+                    </p>
+                    <p class="small text-muted mb-1">👤 Driver: {{ ride.driver_username }}</p>
+                    <p class="small text-muted">📞 {{ ride.driver_phone }} | 🚙 {{ ride.vehicle_model }} ({{ ride.vehicle_number }})</p>
+
+                    <form method="POST" action="{{ url_for('book_ride', ride_id=ride.id) }}" class="mt-3">
+                        <div class="mb-2">
+                            <label for="seats_to_book_{{ ride.id }}" class="form-label fw-semibold">Seats to Book</label>
+                            <input type="number" class="form-control" id="seats_to_book_{{ ride.id }}" 
+                                   name="seats_to_book" min="1" max="{{ ride.seats_available }}" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">✅ Book Ride</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <p class="text-muted fst-italic">No rides available from other users.</p>
+    {% endif %}
+</div>
+{% endblock %}
