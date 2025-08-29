@@ -58,33 +58,40 @@
         <p class="text-muted">You have no upcoming rides.</p>
     {% endif %}
 
-    <!-- Past Rides -->
-    <h4 class="mt-5">🕓 Past Rides</h4>
-    {% if past_rides %}
-        {% for ride in past_rides %}
-        <div class="card shadow-sm mb-3 ride-card">
-            <div class="card-body">
-                <h5 class="card-title text-secondary fw-bold">
-                    {{ ride.from_city }} → {{ ride.to_city }}
-                    {% if ride.status == "Ended" %}
-                        <span class="badge bg-dark ms-2">Ended</span>
-                    {% else %}
-                        <span class="badge bg-secondary ms-2">{{ ride.status }}</span>
-                    {% endif %}
-                </h5>
-                <p class="card-text">
-                    📅 Date: <strong>{{ ride.date }}</strong> | ⏰ Time: <strong>{{ ride.time }}</strong> <br>
-                    💺 Seats Available: {{ ride.seats_available }} <br>
-                    💰 Fare per Seat: ₹{{ ride.fare_per_seat }} <br>
-                    📞 Contact: {{ ride.driver_phone }} <br>
-                    🚘 Car No: {{ ride.vehicle_number }} | Model: {{ ride.vehicle_model }}
-                </p>
-            </div>
+<!-- Past Rides -->
+<h4 class="mt-5">🕓 Past Rides</h4>
+{% if past_rides %}
+    {% for ride in past_rides %}
+    <div class="card shadow-sm mb-3 ride-card">
+        <div class="card-body">
+            <h5 class="card-title text-secondary fw-bold">
+                {{ ride.from_city }} → {{ ride.to_city }}
+                {% if ride.status == "Ended" %}
+                    <span class="badge bg-dark ms-2">Ended</span>
+                {% else %}
+                    <span class="badge bg-secondary ms-2">{{ ride.status }}</span>
+                {% endif %}
+            </h5>
+            <p class="card-text">
+                📅 Date: <strong>{{ ride.date }}</strong> | ⏰ Time: <strong>{{ ride.time }}</strong> <br>
+                💺 Seats Available: {{ ride.seats_available }} <br>
+                💰 Fare per Seat: ₹{{ ride.fare_per_seat }} <br>
+                📞 Contact: {{ ride.driver_phone }} <br>
+                🚘 Car No: {{ ride.vehicle_number }} | Model: {{ ride.vehicle_model }}
+            </p>
+
+            <!-- Show Average Rating -->
+            {% if ride.average_rating %}
+                <p class="text-success fw-bold">⭐ Average Rating: {{ ride.average_rating }}/5</p>
+            {% else %}
+                <p class="text-muted fst-italic">No ratings received yet.</p>
+            {% endif %}
         </div>
-        {% endfor %}
-    {% else %}
-        <p class="text-muted">You have no past rides.</p>
-    {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <p class="text-muted">You have no past rides.</p>
+{% endif %}
 </div>
 
 <style>

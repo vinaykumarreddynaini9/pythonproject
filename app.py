@@ -558,7 +558,7 @@ def book_ride(ride_id):
 
     return redirect(url_for('my_trips'))
 
-#Approval or Reject route
+# Approve Booking Route
 @app.route('/approve_booking/<int:booking_id>', methods=['POST'])
 @login_required
 def approve_booking(booking_id):
@@ -573,19 +573,39 @@ def approve_booking(booking_id):
         flash("This booking is already processed.", "info")
         return redirect(url_for('ride_passengers', ride_id=ride.id))
 
-    # Check if enough seats are available
-    if booking.seats_booked > ride.seats_available:
+    available_seats = ride.seats_available
+    if booking.seats_booked > available_seats:
         booking.status = "rejected"
         flash("Not enough seats left. Booking rejected automatically.", "danger")
+
+        # Send rejection email
+        send_email(
+            booking.user.email,
+            "Booking Rejected",
+            f"Dear {booking.user.username},\n\n"
+            f"Your booking for the ride {ride.from_city} → {ride.to_city} on {ride.date} "
+            f"at {ride.time} was rejected due to insufficient seats.\n\nRegards,\nCO-RIDER"
+        )
     else:
         booking.status = "approved"
-        ride.seats_available -= booking.seats_booked
+        ride.seats_available = available_seats - booking.seats_booked
         flash(f"Booking approved for {booking.user.username}.", "success")
+
+        # Send approval email
+        send_email(
+            booking.user.email,
+            "Booking Approved",
+            f"Dear {booking.user.username},\n\n"
+            f"Your booking for {booking.seats_booked} seat(s) on the ride "
+            f"{ride.from_city} → {ride.to_city} on {ride.date} at {ride.time} "
+            f"has been approved.\n\nHappy riding!\nCO-RIDER"
+        )
 
     db.session.commit()
     return redirect(url_for('ride_passengers', ride_id=ride.id))
 
 
+# Reject Booking Route
 @app.route('/reject_booking/<int:booking_id>', methods=['POST'])
 @login_required
 def reject_booking(booking_id):
@@ -598,31 +618,126 @@ def reject_booking(booking_id):
 
     if booking.status == "pending":
         booking.status = "rejected"
-        db.session.commit()
         flash(f"Booking rejected for {booking.user.username}.", "warning")
+
+        # Send rejection email
+        send_email(
+            booking.user.email,
+            "Booking Rejected",
+            f"Dear {booking.user.username},\n\n"
+            f"Your booking for the ride {ride.from_city} → {ride.to_city} on {ride.date} "
+            f"at {ride.time} was rejected by the driver.\n\nRegards,\nCO-RIDER"
+        )
+
     elif booking.status == "approved":
-        # If previously approved, restore seats
+        # Restore seats
         ride.seats_available += booking.seats_booked
         booking.status = "rejected"
-        db.session.commit()
         flash(f"Booking rejected and {booking.seats_booked} seat(s) restored for {booking.user.username}.", "warning")
+
+        # Send rejection email
+        send_email(
+            booking.user.email,
+            "Booking Rejected",
+            f"Dear {booking.user.username},\n\n"
+            f"Your approved booking for {booking.seats_booked} seat(s) on the ride "
+            f"{ride.from_city} → {ride.to_city} on {ride.date} at {ride.time} "
+            f"was rejected by the driver. The seats have been restored to availability.\n\nRegards,\nCO-RIDER"
+        )
     else:
         flash("Booking already processed.", "info")
 
+    db.session.commit()
     return redirect(url_for('ride_passengers', ride_id=ride.id))
-    
-# ---- My Trips (Passenger) split into upcoming/past + cancel) ----
+
+# ---- Config: platform fee (in %) ----
+PLATFORM_FEE_PERCENT = 10  # change anytime
+
+# ---- My Earnings (Driver) ----
+@app.route('/my_earnings')
+@login_required
+def my_earnings():
+    # All rides posted by this user
+    rides = (
+        Ride.query
+        .filter_by(driver_id=current_user.id)
+        .order_by(Ride.date.asc(), Ride.time.asc())
+        .all()
+    )
+
+    rows = []
+    total_fare_sum = 0
+    platform_fee_sum = 0
+    driver_earnings_sum = 0
+
+    for r in rides:
+        # Only approved bookings count toward earnings
+        approved_bookings = [b for b in r.bookings if b.status == "approved"]
+        seats_approved = sum(b.seats_booked for b in approved_bookings)
+
+        if seats_approved == 0:
+            continue  # skip rides with no approved seats
+
+        fare_per_seat = r.fare_per_seat or 0
+        total_fare = seats_approved * fare_per_seat
+        platform_fee = (total_fare * PLATFORM_FEE_PERCENT) // 100
+        driver_earning = total_fare - platform_fee
+
+        total_fare_sum += total_fare
+        platform_fee_sum += platform_fee
+        driver_earnings_sum += driver_earning
+
+        rows.append({
+            "ride": r,
+            "date": r.date,
+            "time": r.time,
+            "route": f"{r.from_city} → {r.to_city}",
+            "seats": seats_approved,
+            "fare_per_seat": fare_per_seat,
+            "total_fare": total_fare,
+            "platform_fee": platform_fee,
+            "driver_earning": driver_earning,
+            "status": r.status  # Scheduled / Started / Ended
+        })
+
+    return render_template(
+        'my_earnings.html',
+        rows=rows,
+        platform_fee_percent=PLATFORM_FEE_PERCENT,
+        total_fare_sum=total_fare_sum,
+        platform_fee_sum=platform_fee_sum,
+        driver_earnings_sum=driver_earnings_sum
+    )
+
+#My trips   
 @app.route('/my_trips')
 @login_required
 def my_trips():
-    my_bookings = Booking.query.filter_by(user_id=current_user.id).join(Ride, Booking.ride_id == Ride.id).order_by(Ride.date, Ride.time).all()
+    my_bookings = (
+        Booking.query.filter_by(user_id=current_user.id)
+        .join(Ride, Booking.ride_id == Ride.id)
+        .order_by(Ride.date, Ride.time)
+        .all()
+    )
 
-    upcoming_bookings = [b for b in my_bookings if is_upcoming(b.ride)]
-    past_bookings = [b for b in my_bookings if not is_upcoming(b.ride)]
+    upcoming_bookings = [
+        b for b in my_bookings
+        if b.ride.status in ["Scheduled", "Started"] and is_upcoming(b.ride)
+    ]
+    past_bookings = [
+        b for b in my_bookings
+        if b.ride.status == "Ended" or not is_upcoming(b.ride)
+    ]
 
-    return render_template('my_trips.html', upcoming_bookings=upcoming_bookings, past_bookings=past_bookings)
+    return render_template(
+        'my_trips.html',
+        upcoming_bookings=upcoming_bookings,
+        past_bookings=past_bookings
+    )
 
 # ---- My Rides (Driver) split into upcoming/past + cancel) ----
+from sqlalchemy.sql import func
+
 @app.route('/my_rides')
 @login_required
 def my_rides():
@@ -632,7 +747,14 @@ def my_rides():
     upcoming_rides = [r for r in rides if is_upcoming(r)]
     past_rides = [r for r in rides if not is_upcoming(r)]
 
-    return render_template('my_rides.html',upcoming_rides=upcoming_rides,past_rides=past_rides)
+    # Attach average rating
+    for ride in past_rides:
+        avg_rating = db.session.query(func.avg(Booking.rating))\
+            .filter(Booking.ride_id == ride.id, Booking.rating.isnot(None))\
+            .scalar()
+        ride.average_rating = round(avg_rating, 1) if avg_rating else None
+
+    return render_template("my_rides.html", upcoming_rides=upcoming_rides, past_rides=past_rides)
 
 #cancel booking
 from datetime import datetime, timedelta

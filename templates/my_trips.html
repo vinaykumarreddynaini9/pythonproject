@@ -60,31 +60,48 @@
     {% else %}
         <p class="text-muted fst-italic">No upcoming trips booked yet.</p>
     {% endif %}
-
+    
     <!-- Past Trips -->
-    <h4 class="mt-5 text-secondary">🕓 Past Trips</h4>
-    {% if past_bookings %}
-        {% for booking in past_bookings %}
-        <div class="card mb-3 shadow-sm border-0 trip-card">
-            <div class="card-body">
-                <h5 class="card-title text-dark fw-bold">
-                    {{ booking.ride.from_city }} → {{ booking.ride.to_city }}
-                </h5>
-                <p class="card-text text-muted">
-                    📅 Date: <strong>{{ booking.ride.date }}</strong> | 🕒 Time: <strong>{{ booking.ride.time }}</strong> <br>
-                    👥 Seats Booked: <strong>{{ booking.seats_booked }}</strong> <br>
-                    💰 Fare per Seat: <strong>₹{{ booking.ride.fare_per_seat }}</strong> <br>
-                    👨‍✈️ Driver: {{ booking.ride.driver_username }} <br>
-                    📞 Contact: {{ booking.ride.driver_phone }} <br>
-                    🚘 Car No: {{ booking.ride.vehicle_number }} | Model: {{ booking.ride.vehicle_model }}
-                </p>
-                <span class="badge bg-dark px-3 py-2">Ended</span>
-            </div>
+<h4 class="mt-5 text-secondary">🕓 Past Trips</h4>
+{% if past_bookings %}
+    {% for booking in past_bookings %}
+    <div class="card mb-3 shadow-sm border-0 trip-card">
+        <div class="card-body">
+            <h5 class="card-title text-dark fw-bold">
+                {{ booking.ride.from_city }} → {{ booking.ride.to_city }}
+            </h5>
+            <p class="card-text text-muted">
+                📅 Date: <strong>{{ booking.ride.date }}</strong> | 🕒 Time: <strong>{{ booking.ride.time }}</strong> <br>
+                👥 Seats Booked: <strong>{{ booking.seats_booked }}</strong> <br>
+                💰 Fare per Seat: <strong>₹{{ booking.ride.fare_per_seat }}</strong> <br>
+                👨‍✈️ Driver: {{ booking.ride.driver_username }} <br>
+                📞 Contact: {{ booking.ride.driver_phone }} <br>
+                🚘 Car No: {{ booking.ride.vehicle_number }} | Model: {{ booking.ride.vehicle_model }}
+            </p>
+            <span class="badge bg-dark px-3 py-2">Ended</span>
+
+            <!-- Rating Button -->
+            {% if not booking.rating %}
+            <form method="POST" action="{{ url_for('rate_ride', booking_id=booking.id) }}" class="mt-2">
+                <label for="rating" class="form-label">Rate this ride:</label>
+                <select name="rating" class="form-select form-select-sm w-auto d-inline-block">
+                    <option value="1">⭐</option>
+                    <option value="2">⭐⭐</option>
+                    <option value="3">⭐⭐⭐</option>
+                    <option value="4">⭐⭐⭐⭐</option>
+                    <option value="5">⭐⭐⭐⭐⭐</option>
+                </select>
+                <button type="submit" class="btn btn-primary btn-sm">Submit</button>
+            </form>
+            {% else %}
+            <p class="text-success mt-2">✅ You rated: {{ booking.rating }} ⭐</p>
+            {% endif %}
         </div>
-        {% endfor %}
-    {% else %}
-        <p class="text-muted fst-italic">No past trips found.</p>
-    {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <p class="text-muted fst-italic">No past trips found.</p>
+{% endif %}
 </div>
 
 <!-- Extra Styling -->
