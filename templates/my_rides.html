@@ -12,7 +12,13 @@
             <div class="card-body">
                 <h5 class="card-title text-primary fw-bold">
                     {{ ride.from_city }} → {{ ride.to_city }}
-                    <span class="badge bg-success ms-2">Upcoming</span>
+                    {% if ride.status == "Scheduled" %}
+                        <span class="badge bg-secondary ms-2">Scheduled</span>
+                    {% elif ride.status == "Started" %}
+                        <span class="badge bg-success ms-2">Started</span>
+                    {% else %}
+                        <span class="badge bg-dark ms-2">Ended</span>
+                    {% endif %}
                 </h5>
                 <p class="card-text">
                     📅 Date: <strong>{{ ride.date }}</strong> | ⏰ Time: <strong>{{ ride.time }}</strong> <br>
@@ -21,11 +27,30 @@
                     📞 Contact: {{ ride.driver_phone }} <br>
                     🚘 Car No: {{ ride.vehicle_number }} | Model: {{ ride.vehicle_model }}
                 </p>
-                <form method="POST" action="{{ url_for('cancel_ride', ride_id=ride.id) }}" 
-                      onsubmit="return confirm('Are you sure you want to cancel this ride?');" class="d-inline">
-                    <button type="submit" class="btn btn-danger btn-sm">❌ Cancel Ride</button>
-                </form>
-                <a href="{{ url_for('ride_passengers', ride_id=ride.id) }}" class="btn btn-info btn-sm ms-2">👥 View Passengers</a>
+
+                <!-- Actions -->
+                <div class="d-flex flex-wrap gap-2">
+                    <!-- Cancel (only if still Scheduled and >30 min before start) -->
+                    {% if ride.status == "Scheduled" %}
+                        <form method="POST" action="{{ url_for('cancel_ride', ride_id=ride.id) }}"
+                              onsubmit="return confirm('Are you sure you want to cancel this ride?');">
+                            <button type="submit" class="btn btn-danger btn-sm">❌ Cancel Ride</button>
+                        </form>
+                    {% endif %}
+
+                    <a href="{{ url_for('ride_passengers', ride_id=ride.id) }}" class="btn btn-info btn-sm">👥 View Passengers</a>
+
+                    <!-- Start / End buttons -->
+                    {% if ride.status == "Scheduled" %}
+                        <form method="POST" action="{{ url_for('start_ride', ride_id=ride.id) }}">
+                            <button type="submit" class="btn btn-success btn-sm">🚦 Start Ride</button>
+                        </form>
+                    {% elif ride.status == "Started" %}
+                        <form method="POST" action="{{ url_for('end_ride', ride_id=ride.id) }}">
+                            <button type="submit" class="btn btn-warning btn-sm">🛑 End Ride</button>
+                        </form>
+                    {% endif %}
+                </div>
             </div>
         </div>
         {% endfor %}
@@ -41,7 +66,11 @@
             <div class="card-body">
                 <h5 class="card-title text-secondary fw-bold">
                     {{ ride.from_city }} → {{ ride.to_city }}
-                    <span class="badge bg-secondary ms-2">Completed</span>
+                    {% if ride.status == "Ended" %}
+                        <span class="badge bg-dark ms-2">Ended</span>
+                    {% else %}
+                        <span class="badge bg-secondary ms-2">{{ ride.status }}</span>
+                    {% endif %}
                 </h5>
                 <p class="card-text">
                     📅 Date: <strong>{{ ride.date }}</strong> | ⏰ Time: <strong>{{ ride.time }}</strong> <br>

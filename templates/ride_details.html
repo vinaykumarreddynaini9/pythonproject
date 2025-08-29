@@ -18,22 +18,53 @@
         <i class="bi bi-person-circle text-primary"></i> <strong>Driver:</strong> {{ ride.driver_username }} <br>
         <i class="bi bi-calendar-event text-success"></i> <strong>Date:</strong> {{ ride.date }} <br>
         <i class="bi bi-clock text-warning"></i> <strong>Time:</strong> {{ ride.time }} <br>
-        <i class="bi bi-people text-info"></i> <strong>Seats Available:</strong> {{ ride.seats_available }}
+        <i class="bi bi-people text-info"></i> <strong>Seats Available:</strong> {{ ride.seats_available }} <br>
+        <i class="bi bi-flag text-danger"></i> <strong>Status:</strong>
+        {% if ride.status == "Scheduled" %}
+          <span class="badge bg-secondary">Scheduled</span>
+        {% elif ride.status == "Started" %}
+          <span class="badge bg-success">Started</span>
+        {% else %}
+          <span class="badge bg-dark">Ended</span>
+        {% endif %}
       </p>
 
       <!-- Booking Section -->
-      {% if can_book %}
+      {% if can_book and ride.status == "Scheduled" %}
         <form method="POST" action="{{ url_for('book_ride', ride_id=ride.id) }}" class="mt-3">
           <label class="form-label fw-semibold">Select Seats</label>
-          <input type="number" name="seats" min="1" max="{{ ride.seats_available }}" value="1"
+          <input type="number" name="seats" min="1" max="{{ seats_available }}" value="1"
                  class="form-control rounded-3 mb-3" style="max-width:150px;">
           <button type="submit" class="btn btn-gradient w-100 py-2">
             <i class="bi bi-check-circle"></i> Book This Ride
           </button>
         </form>
+      {% elif ride.status != "Scheduled" %}
+        <div class="alert alert-info rounded-3 mt-3 shadow-sm">
+          <i class="bi bi-info-circle"></i> Bookings are closed because this ride has {{ ride.status|lower }}.
+        </div>
       {% else %}
         <div class="alert alert-warning rounded-3 mt-3 shadow-sm">
           <i class="bi bi-exclamation-triangle"></i> {{ reason }}
+        </div>
+      {% endif %}
+
+      <!-- Driver Controls -->
+      {% if current_user.id == ride.driver_id %}
+        <div class="mt-4 d-flex gap-2">
+          {% if ride.status == "Scheduled" %}
+            <form method="POST" action="{{ url_for('start_ride', ride_id=ride.id) }}">
+              <button type="submit" class="btn btn-success w-100">
+                🚦 Start Ride
+              </button>
+            </form>
+          {% elif ride.status == "Started" %}
+            <form method="POST" action="{{ url_for('end_ride', ride_id=ride.id) }}">
+              <button type="submit" class="btn btn-danger w-100">
+                🛑 End Ride
+              </button>
+            </form>
+          {% endif %}
         </div>
       {% endif %}
     </div>

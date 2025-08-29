@@ -31,17 +31,42 @@
                     <h6 class="mb-1">
                         <i class="bi bi-person-fill text-primary"></i> {{ booking.user.username }}
                     </h6>
-                    <small class="text-muted">
-                        <i class="bi bi-people-fill"></i> Seats Booked: {{ booking.seats_booked }}
+                    <small class="text-muted d-block">
+                        <i class="bi bi-people-fill"></i> Seats Requested: {{ booking.seats_booked }}
                     </small>
+                    <span class="badge 
+                        {% if booking.status == 'approved' %} bg-success 
+                        {% elif booking.status == 'pending' %} bg-warning text-dark 
+                        {% else %} bg-danger {% endif %}">
+                        {{ booking.status|capitalize }}
+                    </span>
                 </div>
+
+                <!-- Actions -->
                 <div class="d-flex gap-2">
-                    <form action="{{ url_for('cancel_booking_driver', booking_id=booking.id) }}" method="POST" 
-                          onsubmit="return confirm('Are you sure you want to remove this passenger?');">
-                        <button type="submit" class="btn btn-outline-danger btn-sm">
-                            <i class="bi bi-person-x-fill"></i> Remove
-                        </button>
-                    </form>
+                    {% if booking.status == "pending" %}
+                        <!-- Approve -->
+                        <form action="{{ url_for('approve_booking', booking_id=booking.id) }}" method="POST">
+                            <button type="submit" class="btn btn-outline-success btn-sm">
+                                <i class="bi bi-check-circle-fill"></i> Approve
+                            </button>
+                        </form>
+                        <!-- Reject -->
+                        <form action="{{ url_for('reject_booking', booking_id=booking.id) }}" method="POST"
+                              onsubmit="return confirm('Reject this booking request?');">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-x-circle-fill"></i> Reject
+                            </button>
+                        </form>
+                    {% elif booking.status == "approved" %}
+                        <!-- Option to remove passenger after approval -->
+                        <form action="{{ url_for('cancel_booking_driver', booking_id=booking.id) }}" method="POST"
+                              onsubmit="return confirm('Remove this passenger from the ride?');">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-person-x-fill"></i> Remove
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}

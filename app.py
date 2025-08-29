@@ -6,6 +6,7 @@ from flask_login import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
 from sqlalchemy import or_, and_
 from flask_mail import Mail, Message
 import random
@@ -61,6 +62,11 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20), nullable=False)
     password = db.Column(db.String(256), nullable=False)
 
+    # Relationships
+    bookings = db.relationship("Booking", back_populates="user", cascade="all, delete-orphan")
+    rides = db.relationship("Ride", back_populates="driver", cascade="all, delete-orphan")
+
+
 class Ride(db.Model):
     __tablename__ = 'rides'
     id = db.Column(db.Integer, primary_key=True)
@@ -75,8 +81,13 @@ class Ride(db.Model):
     time = db.Column(db.Time, nullable=False)
     seats_available = db.Column(db.Integer, nullable=False)
     fare_per_seat = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(20), default="Scheduled")  # Scheduled, Started, Ended
 
-    driver = db.relationship('User', backref='rides', foreign_keys=[driver_id])
+    # Relationships
+    bookings = db.relationship("Booking", back_populates="ride", cascade="all, delete-orphan")
+    driver = db.relationship("User", back_populates="rides", foreign_keys=[driver_id])
+    ratings = db.relationship("Rating", back_populates="ride", cascade="all, delete-orphan")
+
 
 class Booking(db.Model):
     __tablename__ = 'bookings'
@@ -84,9 +95,12 @@ class Booking(db.Model):
     ride_id = db.Column(db.Integer, db.ForeignKey('rides.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     seats_booked = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending, approved, rejected
 
-    ride = db.relationship('Ride', backref='bookings')
-    user = db.relationship('User', backref='bookings')
+    # Relationships
+    ride = db.relationship("Ride", back_populates="bookings")
+    user = db.relationship("User", back_populates="bookings")
+
 
 class Rating(db.Model):
     __tablename__ = 'ratings'
@@ -96,8 +110,9 @@ class Rating(db.Model):
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.String(255))
 
-    ride = db.relationship('Ride', backref='ratings')
-    passenger = db.relationship('User')
+    # Relationships
+    ride = db.relationship("Ride", back_populates="ratings")
+    passenger = db.relationship("User")
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -253,11 +268,20 @@ def verify_profile_otp():
 @app.route('/post_ride', methods=['GET', 'POST'])
 @login_required
 def post_ride():
-    # Prevent posting while having a booking
+    # Prevent posting while having a booking as passenger
     existing_booking = Booking.query.filter_by(user_id=current_user.id).first()
     if existing_booking:
         flash("You cannot post a ride while you have booked a ride as a passenger.", "danger")
         return redirect(url_for('find_rides'))
+
+    # ✅ Prevent posting more than 3 active rides
+    active_rides = Ride.query.filter(
+        Ride.driver_id == current_user.id,
+        Ride.status == "Scheduled"   # or "Upcoming" depending on your model
+    ).count()
+    if active_rides >= 3:
+        flash("❌ You cannot post more than 3 active rides at a time.", "danger")
+        return redirect(url_for('my_rides'))
 
     if request.method == 'POST':
         from_city = request.form.get('from_city')
@@ -300,6 +324,7 @@ def post_ride():
             flash(f"You cannot post a ride less than 30 minutes before departure time.", "danger")
             return redirect(url_for('post_ride'))
 
+        # Create new ride
         new_ride = Ride(
             driver_id=current_user.id,
             driver_username=current_user.username,
@@ -311,43 +336,114 @@ def post_ride():
             fare_per_seat=fare_per_seat,
             driver_phone=driver_phone,
             vehicle_number=vehicle_number,
-            vehicle_model=vehicle_model
-            )
+            vehicle_model=vehicle_model,
+            status="Scheduled"
+        )
         db.session.add(new_ride)
         db.session.commit()
-        flash("Ride posted successfully!", "success")
+        flash("✅ Ride posted successfully!", "success")
         return redirect(url_for('find_rides'))
 
     return render_template('post_ride.html', allowed_cities=ALLOWED_CITIES)
 
-# ---- Find Rides page (split: my rides vs others; only upcoming) ----
 
+#Start and end ride
+
+from apscheduler.schedulers.background import BackgroundScheduler
+
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+def auto_end_ride(ride_id):
+    ride = Ride.query.get(ride_id)
+    if ride and ride.status == "Started":
+        ride.status = "Ended"
+        db.session.commit()
+
+@app.route('/start_ride/<int:ride_id>', methods=['POST'])
+@login_required
+def start_ride(ride_id):
+    ride = Ride.query.get_or_404(ride_id)
+    if ride.driver_id != current_user.id:
+        flash("You cannot start this ride.", "danger")
+        return redirect(url_for('my_rides'))
+
+    ride.status = "Started"
+    db.session.commit()
+
+    # Schedule auto-end after 5 hours
+    scheduler.add_job(auto_end_ride, 'date', run_date=datetime.now() + timedelta(hours=5), args=[ride.id])
+
+    flash("Ride has been started!", "success")
+    return redirect(url_for('ride_details', ride_id=ride.id))
+
+
+@app.route('/end_ride/<int:ride_id>', methods=['POST'])
+@login_required
+def end_ride(ride_id):
+    ride = Ride.query.get_or_404(ride_id)
+    if ride.driver_id != current_user.id:
+        flash("You cannot end this ride.", "danger")
+        return redirect(url_for('my_rides'))
+
+    ride.status = "Ended"
+    db.session.commit()
+
+    flash("Ride has been ended!", "success")
+    return redirect(url_for('ride_details', ride_id=ride.id))
+
+# ---- Find Rides page (split: my rides vs others; only upcoming) ----
+from sqlalchemy.orm import joinedload
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 @app.route('/find_rides')
 @login_required
 def find_rides():
-    now = datetime.now()
+    tz = ZoneInfo("Asia/Kolkata")
+    now_local = datetime.now(tz)
+    cutoff_dt = now_local + timedelta(minutes=10)
+    cutoff_date = cutoff_dt.date()
+    cutoff_time = cutoff_dt.time()
 
-    my_rides = Ride.query.filter(Ride.driver_id == current_user.id).order_by(Ride.date, Ride.time).all()
-    other_rides = Ride.query.filter(Ride.driver_id != current_user.id).order_by(Ride.date, Ride.time).all()
+    # My rides (upcoming)
+    my_rides = (
+        Ride.query.options(joinedload(Ride.bookings))
+        .filter(
+            Ride.driver_id == current_user.id,
+            or_(
+                Ride.date > cutoff_date,
+                and_(Ride.date == cutoff_date, Ride.time > cutoff_time)
+            )
+        )
+        .order_by(Ride.date.asc(), Ride.time.asc())
+        .all()
+    )
 
-    # Add is_upcoming flag (rides disappear 5 minutes before ride time)
-    def add_upcoming_flag(rides):
-        upcoming = []
-        for r in rides:
-            ride_dt = datetime.combine(r.date, r.time)
-            if ride_dt - timedelta(minutes=5) >= now:  # ride disappears 5 min before
-                r.is_upcoming = True
-                upcoming.append(r)
-            else:
-                r.is_upcoming = False
-        return upcoming
+    # Other users' rides (upcoming)
+    other_rides = (
+        Ride.query.options(joinedload(Ride.bookings))
+        .filter(
+            Ride.driver_id != current_user.id,
+            or_(
+                Ride.date > cutoff_date,
+                and_(Ride.date == cutoff_date, Ride.time > cutoff_time)
+            )
+        )
+        .order_by(Ride.date.asc(), Ride.time.asc())
+        .all()
+    )
 
-    my_rides = add_upcoming_flag(my_rides)
-    other_rides = add_upcoming_flag(other_rides)
+    # Mark them as upcoming (still useful for template)
+    for r in my_rides + other_rides:
+        r.is_upcoming = True
 
-    return render_template('find_rides.html', my_rides=my_rides, other_rides=other_rides, allowed_cities=ALLOWED_CITIES)
+    return render_template(
+        'find_rides.html',
+        my_rides=my_rides,
+        other_rides=other_rides,
+        allowed_cities=ALLOWED_CITIES
+    )
 
 # ---- Ride Details page ----
 @app.route('/ride/<int:ride_id>')
@@ -401,6 +497,14 @@ def ride_details(ride_id):
         show_driver_phone=show_driver_phone
     )
 
+#booking
+
+def seats_available(ride):
+    """Return remaining seats on this ride considering approved bookings."""
+    booked_seats = db.session.query(db.func.coalesce(db.func.sum(Booking.seats_booked), 0)) \
+                    .filter_by(ride_id=ride.id, status='approved').scalar()
+    return ride.seats_available - booked_seats
+
 @app.route('/book_ride/<int:ride_id>', methods=['POST'])
 @login_required
 def book_ride(ride_id):
@@ -410,60 +514,102 @@ def book_ride(ride_id):
         flash("You cannot book your own ride.", "danger")
         return redirect(url_for('find_rides'))
 
-    if ride.seats_available < 1:
+    available = seats_available(ride)
+    if available < 1:
         flash("No seats available for this ride.", "danger")
         return redirect(url_for('find_rides'))
 
-    # Get number of seats requested
     try:
         seats_to_book = int(request.form.get("seats", 1))
     except ValueError:
         flash("Invalid number of seats.", "danger")
         return redirect(url_for('ride_details', ride_id=ride.id))
 
-    if seats_to_book < 1 or seats_to_book > ride.seats_available:
-        flash(f"Invalid seats. You can book 1 to {ride.seats_available} seats.", "danger")
+    if seats_to_book < 1 or seats_to_book > available:
+        flash(f"You can only request 1 to {available} seats.", "danger")
         return redirect(url_for('ride_details', ride_id=ride.id))
 
-    # Check if user already has a booking for this ride
-    existing_booking = Booking.query.filter_by(ride_id=ride.id, user_id=current_user.id).first()
-
-    if existing_booking:
-        # Update seats
-        if existing_booking.seats_booked + seats_to_book > ride.seats_available:
-            flash(f"You cannot book more than {ride.seats_available} seats in total.", "danger")
-            return redirect(url_for('ride_details', ride_id=ride.id))
-        existing_booking.seats_booked += seats_to_book
-        flash(f"Booking updated! Total seats booked: {existing_booking.seats_booked}", "success")
-    else:
-        # Create new booking
-        booking = Booking(
-            ride_id=ride.id,
-            user_id=current_user.id,
-            seats_booked=seats_to_book
-        )
-        db.session.add(booking)
-        flash(f"Booking successful! You booked {seats_to_book} seat(s).", "success")
-
-    # Deduct seats from ride
-    ride.seats_available -= seats_to_book
-
-    db.session.commit()
-    return redirect(url_for('my_trips'))
-
-    # Email notifications (optional)
-    safe_email(
-        to=ride.driver.email if ride.driver else None,
-        subject="New Booking on Your Ride",
-        body=f"Hi {ride.driver_username},\n\n{current_user.username} booked {seats_requested} seat(s) on your ride "
-             f"{ride.from_city} → {ride.to_city} on {ride.date} at {ride.time}.\n\n— CO-RIDER"
+    # Create booking
+    booking = Booking(
+        ride_id=ride.id,
+        user_id=current_user.id,
+        seats_booked=seats_to_book,
+        status="pending"
     )
+    db.session.add(booking)
+    db.session.commit()
+
+    flash(f"Booking request sent for {seats_to_book} seat(s). Waiting for driver approval.", "success")
+
+    # Optional: email notifications
+    if ride.driver and ride.driver.email:
+        safe_email(
+            to=ride.driver.email,
+            subject="New Booking on Your Ride",
+            body=f"Hi {ride.driver_username},\n\n{current_user.username} booked {seats_to_book} seat(s) on your ride "
+                 f"{ride.from_city} → {ride.to_city} on {ride.date} at {ride.time}.\n\n— CO-RIDER"
+        )
     safe_email(
         to=current_user.email,
-        subject="Ride Booking Confirmed",
-        body=f"Hi {current_user.username},\n\nYour booking is confirmed for {ride.from_city} → {ride.to_city} "
-             f"on {ride.date} at {ride.time}. Seats: {seats_requested}.\nDriver: {ride.driver_username}.\n\n— CO-RIDER"
+        subject="Ride Booking Requested",
+        body=f"Hi {current_user.username},\n\nYour booking is requested for {ride.from_city} → {ride.to_city} "
+             f"on {ride.date} at {ride.time}. Seats: {seats_to_book}.\nDriver: {ride.driver_username}.\n\n— CO-RIDER"
     )
+
+    return redirect(url_for('my_trips'))
+
+#Approval or Reject route
+@app.route('/approve_booking/<int:booking_id>', methods=['POST'])
+@login_required
+def approve_booking(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    ride = booking.ride
+
+    if ride.driver_id != current_user.id:
+        flash("Not authorized.", "danger")
+        return redirect(url_for('my_rides'))
+
+    if booking.status != "pending":
+        flash("This booking is already processed.", "info")
+        return redirect(url_for('ride_passengers', ride_id=ride.id))
+
+    # Check if enough seats are available
+    if booking.seats_booked > ride.seats_available:
+        booking.status = "rejected"
+        flash("Not enough seats left. Booking rejected automatically.", "danger")
+    else:
+        booking.status = "approved"
+        ride.seats_available -= booking.seats_booked
+        flash(f"Booking approved for {booking.user.username}.", "success")
+
+    db.session.commit()
+    return redirect(url_for('ride_passengers', ride_id=ride.id))
+
+
+@app.route('/reject_booking/<int:booking_id>', methods=['POST'])
+@login_required
+def reject_booking(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    ride = booking.ride
+
+    if ride.driver_id != current_user.id:
+        flash("Not authorized.", "danger")
+        return redirect(url_for('my_rides'))
+
+    if booking.status == "pending":
+        booking.status = "rejected"
+        db.session.commit()
+        flash(f"Booking rejected for {booking.user.username}.", "warning")
+    elif booking.status == "approved":
+        # If previously approved, restore seats
+        ride.seats_available += booking.seats_booked
+        booking.status = "rejected"
+        db.session.commit()
+        flash(f"Booking rejected and {booking.seats_booked} seat(s) restored for {booking.user.username}.", "warning")
+    else:
+        flash("Booking already processed.", "info")
+
+    return redirect(url_for('ride_passengers', ride_id=ride.id))
     
 # ---- My Trips (Passenger) split into upcoming/past + cancel) ----
 @app.route('/my_trips')
@@ -488,7 +634,10 @@ def my_rides():
 
     return render_template('my_rides.html',upcoming_rides=upcoming_rides,past_rides=past_rides)
 
-# ---- Cancel Booking ----
+#cancel booking
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
 @app.route('/cancel_booking/<int:booking_id>', methods=['POST'])
 @login_required
 def cancel_booking(booking_id):
@@ -497,17 +646,25 @@ def cancel_booking(booking_id):
         flash("You are not allowed to cancel this booking.", "danger")
         return redirect(url_for('my_trips'))
 
+    ride = booking.ride
     # only allow cancel for upcoming rides
-    if not is_upcoming(booking.ride):
+    if not is_upcoming(ride):
         flash("This ride has already departed.", "warning")
         return redirect(url_for('my_trips'))
 
-    booking.ride.seats_available += booking.seats_booked
+    # restrict cancellation if ride < 30 minutes away
+    tz = ZoneInfo("Asia/Kolkata")
+    ride_dt = datetime.combine(ride.date, ride.time, tzinfo=tz)
+    now_local = datetime.now(tz)
+    if ride_dt - now_local < timedelta(minutes=30):
+        flash("❌ You cannot cancel a booking less than 30 minutes before departure.", "danger")
+        return redirect(url_for('my_trips'))
+
+    ride.seats_available += booking.seats_booked
     db.session.delete(booking)
     db.session.commit()
 
     # email notify driver and passenger
-    ride = booking.ride
     safe_email(
         to=current_user.email,
         subject="Booking Cancelled",
@@ -525,6 +682,27 @@ def cancel_booking(booking_id):
     flash("Booking cancelled successfully!", "success")
     return redirect(url_for('my_trips'))
 
+#cancel booking driver
+@app.route('/cancel_booking_driver/<int:booking_id>', methods=['POST'])
+@login_required
+def cancel_booking_driver(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    ride = booking.ride
+
+    if ride.driver_id != current_user.id:
+        flash("Not authorized.", "danger")
+        return redirect(url_for('my_rides'))
+
+    if booking.status != "approved":
+        flash("Only approved bookings can be cancelled by driver.", "info")
+        return redirect(url_for('ride_passengers', ride_id=ride.id))
+
+    ride.seats_available += booking.seats_booked
+    booking.status = "cancelled_by_driver"
+    db.session.commit()
+    flash(f"Booking for {booking.user.username} cancelled. Seats released.", "warning")
+    return redirect(url_for('ride_passengers', ride_id=ride.id))
+
 # ---- Cancel Ride (driver) ----
 @app.route('/cancel_ride/<int:ride_id>', methods=['POST'])
 @login_required
@@ -532,6 +710,14 @@ def cancel_ride(ride_id):
     ride = Ride.query.get_or_404(ride_id)
     if ride.driver_id != current_user.id:
         flash("You are not allowed to cancel this ride.", "danger")
+        return redirect(url_for('my_rides'))
+
+    # restrict driver cancellation if ride < 30min AND passengers booked
+    tz = ZoneInfo("Asia/Kolkata")
+    ride_dt = datetime.combine(ride.date, ride.time, tzinfo=tz)
+    now_local = datetime.now(tz)
+    if ride_dt - now_local < timedelta(minutes=30) and ride.bookings:
+        flash("❌ You cannot cancel this ride within 30 minutes of departure since passengers are booked.", "danger")
         return redirect(url_for('my_rides'))
 
     # notify passengers
@@ -549,10 +735,10 @@ def cancel_ride(ride_id):
     db.session.delete(ride)
     db.session.commit()
 
-    flash("Ride canceled successfully!", "success")
+    flash("Ride cancelled successfully!", "success")
     return redirect(url_for('my_rides'))
 
-@app.route('/ride_passengers/<int:ride_id>')
+@app.route('/ride/<int:ride_id>/passengers')
 @login_required
 def ride_passengers(ride_id):
     ride = Ride.query.get_or_404(ride_id)
@@ -597,5 +783,6 @@ with app.app_context():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+  app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+
 

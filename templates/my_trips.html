@@ -29,12 +29,31 @@
                     📞 Contact: {{ booking.ride.driver_phone }} <br>
                     🚘 Car No: {{ booking.ride.vehicle_number }} | Model: {{ booking.ride.vehicle_model }}
                 </p>
-                <span class="badge bg-success px-3 py-2">Upcoming</span>
 
-                <!-- Cancel Booking Button -->
+                <!-- Ride Status Badge -->
+                <span class="badge 
+                    {% if booking.ride.status == 'Scheduled' %} bg-secondary
+                    {% elif booking.ride.status == 'Started' %} bg-success
+                    {% elif booking.ride.status == 'Ended' %} bg-dark
+                    {% endif %} px-3 py-2 me-2">
+                    {{ booking.ride.status }}
+                </span>
+
+                <!-- Booking Status Badge -->
+                <span class="badge 
+                    {% if booking.status == 'approved' %} bg-success 
+                    {% elif booking.status == 'pending' %} bg-warning text-dark 
+                    {% elif booking.status == 'rejected' %} bg-danger 
+                    {% endif %} px-3 py-2">
+                    {{ booking.status|capitalize }}
+                </span>
+
+                <!-- Cancel Booking (only if not rejected & ride still Scheduled) -->
+                {% if booking.status != "rejected" and booking.ride.status == "Scheduled" %}
                 <form method="POST" action="{{ url_for('cancel_booking', booking_id=booking.id) }}" class="mt-2">
                     <button type="submit" class="btn btn-danger btn-sm">Cancel Booking</button>
                 </form>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
@@ -59,7 +78,7 @@
                     📞 Contact: {{ booking.ride.driver_phone }} <br>
                     🚘 Car No: {{ booking.ride.vehicle_number }} | Model: {{ booking.ride.vehicle_model }}
                 </p>
-                <span class="badge bg-secondary px-3 py-2">Completed</span>
+                <span class="badge bg-dark px-3 py-2">Ended</span>
             </div>
         </div>
         {% endfor %}
